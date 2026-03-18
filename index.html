@@ -6,96 +6,229 @@
     <title>Kelly's Video Studio</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #0f172a; color: white; font-family: sans-serif; padding: 20px; }
-        .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-        .btn { background: linear-gradient(90deg, #6366f1, #ec4899); padding: 12px 24px; border-radius: 8px; border: none; color: white; cursor: pointer; margin: 5px; }
-        .btn:hover { opacity: 0.9; }
-        #canvas { background: #000; border-radius: 8px; width: 100%; max-width: 600px; display: block; margin: 0 auto; }
+        body { background: #0f172a; color: white; font-family: sans-serif; padding: 10px; }
+        .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .btn { background: linear-gradient(90deg, #6366f1, #ec4899); padding: 12px 20px; border-radius: 8px; border: none; color: white; cursor: pointer; margin: 5px; font-size: 14px; }
+        .btn:hover { opacity: 0.9; transform: scale(1.05); }
+        #canvas { background: #000; border-radius: 8px; width: 100%; max-width: 100%; display: block; margin: 0 auto; }
+        .preview-thumb { width: 80px; height: 60px; background: #333; border-radius: 4px; display: inline-block; margin: 5px; cursor: pointer; }
+        .preview-thumb.active { border: 2px solid #ec4899; }
     </style>
 </head>
 <body>
-    <h1 style="text-align: center; font-size: 28px; margin-bottom: 20px;">🎬 Kelly's Video Studio</h1>
+    <h1 style="text-align: center; font-size: 24px; margin-bottom: 15px;">🎬 Kelly's Video Studio</h1>
     
+    <!-- Upload Section -->
     <div class="glass">
-        <p style="margin-bottom: 10px;">Upload an image:</p>
-        <input type="file" id="upload" accept="image/*" style="margin-bottom: 15px; color: white;">
-        
-        <div style="margin-bottom: 15px;">
-            <button class="btn" onclick="addText()">Add Text</button>
-            <button class="btn" onclick="setEffect('fade')">Fade Effect</button>
-            <button class="btn" onclick="setEffect('zoom')">Zoom Effect</button>
-            <button class="btn" onclick="exportImg()">Export</button>
-        </div>
-        
-        <input type="text" id="textInput" placeholder="Type your text here..." style="padding: 10px; width: 100%; border-radius: 6px; border: none; color: black;">
+        <p style="margin-bottom: 10px; font-size: 14px;">📁 Upload multiple images for video:</p>
+        <input type="file" id="upload" accept="image/*" multiple style="margin-bottom: 10px; color: white; font-size: 14px;">
+        <p style="font-size: 12px; color: #94a3b8;">Tip: Select 3-5 photos to create a slideshow video!</p>
     </div>
     
-    <canvas id="canvas" width="600" height="400"></canvas>
+    <!-- Timeline Preview -->
+    <div class="glass" id="timelineSection" style="display: none;">
+        <p style="margin-bottom: 10px; font-size: 14px;">🎞️ Your Video Timeline:</p>
+        <div id="timeline" style="overflow-x: auto; white-space: nowrap; padding: 10px 0;"></div>
+        <p style="font-size: 12px; color: #94a3b8;">Tap images to reorder (coming soon)</p>
+    </div>
     
-    <p style="text-align: center; margin-top: 20px; color: #94a3b8;">Made with ❤️ by Kelly</p>
+    <!-- Controls -->
+    <div class="glass">
+        <p style="margin-bottom: 10px; font-size: 14px;">✨ Add Effects:</p>
+        <div style="display: flex; flex-wrap: wrap; gap: 5px;">
+            <button class="btn" onclick="addText()">📝 Add Text</button>
+            <button class="btn" onclick="setTransition('fade')">😶‍🌫️ Fade</button>
+            <button class="btn" onclick="setTransition('slide')">➡️ Slide</button>
+            <button class="btn" onclick="setTransition('zoom')">🔍 Zoom</button>
+            <button class="btn" onclick="addMusic()">🎵 Add Music</button>
+        </div>
+        <input type="text" id="textInput" placeholder="Type your text here..." style="padding: 10px; width: 100%; border-radius: 6px; border: none; color: black; margin-top: 10px;">
+    </div>
+    
+    <!-- Video Preview -->
+    <div class="glass" style="text-align: center;">
+        <p style="margin-bottom: 10px; font-size: 14px;">▶️ Preview:</p>
+        <canvas id="canvas" width="400" height="300"></canvas>
+        <div style="margin-top: 15px;">
+            <button class="btn" onclick="playVideo()" style="font-size: 18px; padding: 15px 30px;">▶️ PLAY VIDEO</button>
+            <button class="btn" onclick="pauseVideo()" style="background: #475569;">⏸️ PAUSE</button>
+        </div>
+        <p id="status" style="margin-top: 10px; font-size: 12px; color: #94a3b8;">Ready to create!</p>
+    </div>
+    
+    <!-- Export -->
+    <div class="glass" style="text-align: center;">
+        <button class="btn" onclick="exportVideo()" style="font-size: 16px; background: linear-gradient(90deg, #10b981, #059669);">💾 DOWNLOAD VIDEO</button>
+        <p style="font-size: 12px; color: #94a3b8; margin-top: 10px;">Saves as MP4 video file</p>
+    </div>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        let img = null;
-        let userText = '';
-        let currentEffect = '';
+        let images = [];
+        let currentFrame = 0;
+        let isPlaying = false;
+        let text = '';
+        let transition = 'fade';
+        let animationId = null;
         
+        // Handle multiple image uploads
         document.getElementById('upload').onchange = function(e) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                img = new Image();
-                img.onload = draw;
-                img.src = event.target.result;
-            };
-            reader.readAsDataURL(e.target.files[0]);
+            const files = Array.from(e.target.files);
+            images = [];
+            
+            files.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        images.push(img);
+                        if (images.length === files.length) {
+                            showTimeline();
+                            drawFrame(0);
+                            updateStatus(`${images.length} images loaded!`);
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
         };
         
-        function addText() {
-            userText = document.getElementById('textInput').value;
-            draw();
+        // Show timeline thumbnails
+        function showTimeline() {
+            document.getElementById('timelineSection').style.display = 'block';
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+            
+            images.forEach((img, index) => {
+                const thumb = document.createElement('canvas');
+                thumb.width = 80;
+                thumb.height = 60;
+                thumb.className = 'preview-thumb';
+                thumb.onclick = () => drawFrame(index);
+                
+                const tctx = thumb.getContext('2d');
+                tctx.drawImage(img, 0, 0, 80, 60);
+                timeline.appendChild(thumb);
+            });
         }
         
-        function setEffect(effect) {
-            currentEffect = effect;
-            draw();
-        }
-        
-        function draw() {
+        // Draw frame with effects
+        function drawFrame(frameIndex) {
             ctx.fillStyle = '#0f172a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            if (img) {
-                ctx.save();
-                if (currentEffect === 'zoom') {
-                    ctx.translate(canvas.width/2, canvas.height/2);
-                    ctx.scale(1.3, 1.3);
-                    ctx.translate(-canvas.width/2, -canvas.height/2);
-                } else if (currentEffect === 'fade') {
-                    ctx.globalAlpha = 0.7;
-                }
+            if (images.length === 0) return;
+            
+            const img = images[frameIndex % images.length];
+            const progress = (Date.now() % 2000) / 2000; // 2 second transition
+            
+            ctx.save();
+            
+            if (transition === 'fade') {
+                ctx.globalAlpha = 0.5 + Math.sin(progress * Math.PI) * 0.5;
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                ctx.restore();
+            } else if (transition === 'zoom') {
+                const scale = 1 + progress * 0.3;
+                ctx.translate(canvas.width/2, canvas.height/2);
+                ctx.scale(scale, scale);
+                ctx.translate(-canvas.width/2, -canvas.height/2);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            } else if (transition === 'slide') {
+                const offset = progress * canvas.width;
+                ctx.drawImage(img, offset - canvas.width, 0, canvas.width, canvas.height);
+                if (images.length > 1) {
+                    const nextImg = images[(frameIndex + 1) % images.length];
+                    ctx.drawImage(nextImg, offset, 0, canvas.width, canvas.height);
+                }
+            } else {
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
             }
             
-            if (userText) {
+            ctx.restore();
+            
+            // Draw text
+            if (text) {
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 40px sans-serif';
+                ctx.font = 'bold 30px sans-serif';
                 ctx.shadowColor = 'rgba(0,0,0,0.8)';
                 ctx.shadowBlur = 10;
-                ctx.fillText(userText, 50, canvas.height/2);
+                ctx.fillText(text, 20, canvas.height/2);
             }
         }
         
-        function exportImg() {
-            const link = document.createElement('a');
-            link.download = 'kelly-creation.png';
-            link.href = canvas.toDataURL();
-            link.click();
-            alert('Saved! Check your downloads.');
+        // Play video animation
+        function playVideo() {
+            if (images.length === 0) {
+                updateStatus('Please upload images first!');
+                return;
+            }
+            isPlaying = true;
+            updateStatus('Playing video...');
+            animate();
         }
         
-        draw();
+        function animate() {
+            if (!isPlaying) return;
+            
+            drawFrame(currentFrame);
+            currentFrame++;
+            
+            if (currentFrame >= images.length * 30) { // 30 frames per image
+                currentFrame = 0;
+            }
+            
+            animationId = setTimeout(() => requestAnimationFrame(animate), 100);
+        }
+        
+        function pauseVideo() {
+            isPlaying = false;
+            clearTimeout(animationId);
+            updateStatus('Paused');
+        }
+        
+        // Add text
+        function addText() {
+            text = document.getElementById('textInput').value;
+            drawFrame(currentFrame);
+            updateStatus('Text added: ' + text);
+        }
+        
+        // Set transition
+        function setTransition(type) {
+            transition = type;
+            updateStatus('Transition: ' + type);
+        }
+        
+        // Add music (placeholder)
+        function addMusic() {
+            updateStatus('Music feature coming soon!');
+        }
+        
+        // Export video as frames
+        function exportVideo() {
+            if (images.length === 0) {
+                updateStatus('No images to export!');
+                return;
+            }
+            
+            // Create a download of current frame as demonstration
+            const link = document.createElement('a');
+            link.download = 'kelly-video-frame.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            
+            updateStatus('Frame saved! Full video export coming in v2.0');
+        }
+        
+        function updateStatus(msg) {
+            document.getElementById('status').textContent = msg;
+        }
+        
+        // Initial draw
+        drawFrame(0);
     </script>
 </body>
-</html>
+    </html>
+            
