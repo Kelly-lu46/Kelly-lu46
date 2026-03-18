@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kelly's Video Studio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; color: white; font-family: sans-serif; padding: 20px; }
+        .glass { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .btn { background: linear-gradient(90deg, #6366f1, #ec4899); padding: 12px 24px; border-radius: 8px; border: none; color: white; cursor: pointer; margin: 5px; }
+        .btn:hover { opacity: 0.9; }
+        #canvas { background: #000; border-radius: 8px; width: 100%; max-width: 600px; display: block; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <h1 style="text-align: center; font-size: 28px; margin-bottom: 20px;">🎬 Kelly's Video Studio</h1>
+    
+    <div class="glass">
+        <p style="margin-bottom: 10px;">Upload an image:</p>
+        <input type="file" id="upload" accept="image/*" style="margin-bottom: 15px; color: white;">
+        
+        <div style="margin-bottom: 15px;">
+            <button class="btn" onclick="addText()">Add Text</button>
+            <button class="btn" onclick="setEffect('fade')">Fade Effect</button>
+            <button class="btn" onclick="setEffect('zoom')">Zoom Effect</button>
+            <button class="btn" onclick="exportImg()">Export</button>
+        </div>
+        
+        <input type="text" id="textInput" placeholder="Type your text here..." style="padding: 10px; width: 100%; border-radius: 6px; border: none; color: black;">
+    </div>
+    
+    <canvas id="canvas" width="600" height="400"></canvas>
+    
+    <p style="text-align: center; margin-top: 20px; color: #94a3b8;">Made with ❤️ by Kelly</p>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let img = null;
+        let userText = '';
+        let currentEffect = '';
+        
+        document.getElementById('upload').onchange = function(e) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                img = new Image();
+                img.onload = draw;
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(e.target.files[0]);
+        };
+        
+        function addText() {
+            userText = document.getElementById('textInput').value;
+            draw();
+        }
+        
+        function setEffect(effect) {
+            currentEffect = effect;
+            draw();
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            if (img) {
+                ctx.save();
+                if (currentEffect === 'zoom') {
+                    ctx.translate(canvas.width/2, canvas.height/2);
+                    ctx.scale(1.3, 1.3);
+                    ctx.translate(-canvas.width/2, -canvas.height/2);
+                } else if (currentEffect === 'fade') {
+                    ctx.globalAlpha = 0.7;
+                }
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+            
+            if (userText) {
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 40px sans-serif';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 10;
+                ctx.fillText(userText, 50, canvas.height/2);
+            }
+        }
+        
+        function exportImg() {
+            const link = document.createElement('a');
+            link.download = 'kelly-creation.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            alert('Saved! Check your downloads.');
+        }
+        
+        draw();
+    </script>
+</body>
+</html>
